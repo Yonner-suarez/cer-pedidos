@@ -57,7 +57,7 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
 });
 
 // JWT Authentication
-var key = Encoding.ASCII.GetBytes(Variables.Token.Bearer);
+var key = Encoding.ASCII.GetBytes(Variables.Token.Llave);
 builder.Services.AddAuthentication(x =>
 {
     x.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -84,6 +84,30 @@ builder.Services.AddSwaggerGen(c =>
         Version = "v1",
         Title = "Microservicio Pedidos"
     });
+    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Type = SecuritySchemeType.ApiKey,
+        Scheme = "Bearer",
+        BearerFormat = "JWT",
+        In = ParameterLocation.Header,
+        Description = "Ingrese 'Bearer' seguido de un espacio y su token JWT.\n\nEjemplo: \"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\""
+    });
+
+    c.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            new string[] {}
+        }
+    });
 });
 
 // --------------------------------------
@@ -100,7 +124,7 @@ if (app.Environment.IsDevelopment())
 app.UseSwagger();
 app.UseSwaggerUI(c =>
 {
-    c.SwaggerEndpoint("/swagger/v1/swagger.json", "v1.0.0");
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "v1.0.1");
 });
 
 app.UseRouting();

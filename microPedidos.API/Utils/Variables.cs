@@ -13,17 +13,30 @@
             //Local
             public static string cnx = new ConfigurationBuilder().AddJsonFile(env).Build().GetSection("AppSettings")["conexion"];
         }
-
-
-
         public static class Token
         {
             public static string PasswordHash = new ConfigurationBuilder().AddJsonFile(env).Build().GetSection("AppSettings").GetSection("Token")["PasswordHash"];
             public static string SaltKey = new ConfigurationBuilder().AddJsonFile(env).Build().GetSection("AppSettings").GetSection("Token")["SaltKey"];
             public static string VIKey = new ConfigurationBuilder().AddJsonFile(env).Build().GetSection("AppSettings").GetSection("Token")["VIKey"];
             public static string Bearer = new ConfigurationBuilder().AddJsonFile(env).Build().GetSection("AppSettings").GetSection("Token")["Bearer"];
+            public static string Llave = new ConfigurationBuilder().AddJsonFile(env).Build().GetSection("AppSettings").GetSection("Token")["Llave"];
+            public static int Expiration = int.Parse(new ConfigurationBuilder().AddJsonFile(env).Build().GetSection("AppSettings").GetSection("Token")["Expiration"]);
         }
+        public static class TipoPersona
+        {
+            public static string Natural = new ConfigurationBuilder().AddJsonFile(env).Build().GetSection("AppSettings").GetSection("TipoPersona")["Natural"];
+            public static string Juridica = new ConfigurationBuilder().AddJsonFile(env).Build().GetSection("AppSettings").GetSection("TipoPersona")["Juridica"];
 
+        }
+        public static class Response
+        {
+            public static int OK = StatusCodes.Status200OK;
+            public static int ERROR = StatusCodes.Status500InternalServerError;
+            public static int NotFound = StatusCodes.Status404NotFound;
+            public static int BadRequest = StatusCodes.Status400BadRequest;
+            public static int Inautorizado = StatusCodes.Status401Unauthorized;
+
+        }
         //public static class Smtp
         //{
         //    public static string BCC = new ConfigurationBuilder().AddJsonFile(env).Build().GetSection("AppSettings").GetSection("Smtp")["BCC"];
