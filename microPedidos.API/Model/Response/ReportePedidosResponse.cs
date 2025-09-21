@@ -13,6 +13,19 @@
         public int NroLineas { get; set; }        // Cantidad de líneas distintas en el pedido
         public int TotalProductos { get; set; }   // Cantidad total de unidades en el pedido
         public decimal TotalPedido { get; set; }  // Monto total del pedido
+        public List<ProductoPedido> productoPedido { get; set; }
     }
 
+
+    public class ProductoPedido
+    {
+        public string Marca { get; set; }
+        public string Cateogira { get; set; }
+
+        public string Descripcion { get; set; }
+        public string Cantidad { get; set; }
+
+        public int PrecioUnitario { get; set; }
+        public byte[] Image { get; set; }
+    }
 }

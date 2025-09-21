@@ -351,5 +351,228 @@ namespace microPedidos.API.Dao
             }
             return response;
         }
+
+        public static Dictionary<int, List<ProductoPedido>> ObtenerProductosPorPedidos(List<int> idsPedidos)
+        {
+            var resultado = new Dictionary<int, List<ProductoPedido>>();
+
+            if (idsPedidos == null || idsPedidos.Count == 0)
+                return null;
+
+            using (var conn = new MySqlConnection(Variables.Conexion.cnx))
+            {
+                try
+                {
+                    conn.Open();
+
+                    // Convertimos la lista de ids a string separados por comas
+                    string listaIds = string.Join(",", idsPedidos);
+
+                    string sql = $@"
+                    SELECT 
+                            d.cer_int_id_pedido AS IdPedido,
+                            m.cer_enum_nombre AS Marca,
+                            c.cer_enum_nombre AS Categoria,
+                            p.cer_text_descripcion AS Descripcion,
+                            d.cer_int_cantidad AS Cantidad,
+                            p.cer_decimal_precio AS PrecioUnitario
+                        FROM tbl_cer_pedido_detalle d
+                        INNER JOIN tbl_cer_producto p ON d.cer_int_id_producto = p.cer_int_id_producto
+                        INNER JOIN tbl_cer_marca m ON p.cer_int_id_marca = m.cer_int_id_marca
+                        INNER JOIN tbl_cer_categoria c ON p.cer_int_id_categoria = c.cer_int_id_categoria
+                        WHERE d.cer_int_id_pedido IN ({listaIds})
+                          AND p.cer_tinyint_estado = 1
+                          AND d.cer_datetime_deleted_at IS NULL;";
+
+                    using (var cmd = new MySqlCommand(sql, conn))
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            int idPedido = Convert.ToInt32(reader["IdPedido"]);
+
+                            var producto = new ProductoPedido
+                            {
+                                Marca = reader["Marca"].ToString(),
+                                Cateogira = reader["Categoria"].ToString(),
+                                Descripcion = reader["Descripcion"].ToString(),
+                                Cantidad = reader["Cantidad"].ToString(),
+                                PrecioUnitario = reader["PrecioUnitario"] != DBNull.Value ? Convert.ToInt32(reader["PrecioUnitario"]) : 0
+                            };
+
+                            if (!resultado.ContainsKey(idPedido))
+                                resultado[idPedido] = new List<ProductoPedido>();
+
+                            resultado[idPedido].Add(producto);
+                        }
+                    }
+                }
+                catch
+                {
+                    // Manejo de errores si quieres
+                    return null;
+                }
+                finally
+                {
+                    conn.Close();
+                }
+            }
+
+            return resultado;
+        }
+        public static GeneralResponse ObtenerPedido(int idPedido)
+        {
+            var res = new GeneralResponse();
+            using (var conn = new MySqlConnection(Variables.Conexion.cnx))
+            {
+                try
+                {
+                    conn.Open();
+                    string query = @"SELECT * FROM
+                                    tbl_cer_pedido WHERE cer_int_id_pedido = @idPedido
+                                    AND cer_datetime_deleted_at IS NULL";
+
+                    using (var cmd = new MySqlCommand(query, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@idPedido", idPedido);
+                        using (var reader = cmd.ExecuteReader())
+                        {
+                            if (reader.Read())
+                            {
+                                var pedido = new Pedido
+                                {
+                                    IdPedido = reader.GetInt32("cer_int_id_pedido"),
+                                    Estado = reader.GetString("cer_enum_estado"),
+                                    IdCliente = reader.GetInt32("cer_int_id_usuario"),
+                                    FechaPedido = reader.GetDateTime("cer_datetime_fecha")
+                                };
+                                res.status = Variables.Response.OK;
+                                res.message = "Pedido encontrado.";
+                                res.data = pedido;
+                                return res;
+                            }
+                            else
+                            {
+                                res.status = Variables.Response.BadRequest;
+                                res.message = "Pedido no encontrado.";
+                                return res;
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    res.status = Variables.Response.ERROR;
+                    res.message = "Ocurrió un error al obtener el pedido de la DB";
+                    return res;
+                }
+            }
+        }
+        public static GeneralResponse ActualizarEstado(int idPedido)
+        {
+            var res = new GeneralResponse();
+            using (var conn = new MySqlConnection(Variables.Conexion.cnx))
+            {
+                try
+                {
+                    conn.Open();
+
+                    // Cambiar de Pendiente a Enviado
+                    string query = @"
+                                    UPDATE tbl_cer_pedido
+                                    SET cer_enum_estado = 'Enviado',
+                                        cer_datetime_updated_at = NOW()
+                                    WHERE cer_int_id_pedido = @idPedido
+                                      AND cer_datetime_deleted_at IS NULL";
+
+                    using (var cmd = new MySqlCommand(query, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@idPedido", idPedido);
+                        int filas = cmd.ExecuteNonQuery();
+
+                        if (filas > 0)
+                        {
+                            res.status = Variables.Response.OK;
+                            res.message = "Estado del pedido actualizado a Enviado.";
+                            res.data = null;
+                        }
+                        else
+                        {
+                            res.status = Variables.Response.BadRequest;
+                            res.message = "No se pudo actualizar, pedido no encontrado o ya eliminado.";
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    res.status = Variables.Response.ERROR;
+                    res.message = "Ocurrió un error al actualizar el estado del pedido";
+                }
+
+                return res;
+            }
+        }
+
+        public static GeneralResponse ObtenerPedidoPorUsuario(int idUser)
+        {
+            var res = new GeneralResponse();
+            var pedidos = new List<Pedido>();
+
+            using (var conn = new MySqlConnection(Variables.Conexion.cnx))
+            {
+                try
+                {
+                    conn.Open();
+                    string query = @"SELECT * FROM tbl_cer_pedido 
+                             WHERE cer_int_id_usuario = @idUser
+                             AND cer_datetime_deleted_at IS NULL";
+
+                    using (var cmd = new MySqlCommand(query, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@idUser", idUser);
+
+                        using (var reader = cmd.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                var pedido = new Pedido
+                                {
+                                    IdPedido = reader.GetInt32("cer_int_id_pedido"),
+                                    Estado = reader.GetString("cer_enum_estado"),
+                                    IdCliente = reader.GetInt32("cer_int_id_usuario"),
+                                    FechaPedido = reader.GetDateTime("cer_datetime_fecha"),
+                                    productos = new List<ProductoPedido>() // Inicializamos vacía
+                                };
+
+                                pedidos.Add(pedido);
+                            }
+                        }
+                    }
+
+                    if (pedidos.Count > 0)
+                    {
+                        res.status = Variables.Response.OK;
+                        res.message = "Pedidos encontrados.";
+                        res.data = pedidos;
+                    }
+                    else
+                    {
+                        res.status = Variables.Response.BadRequest;
+                        res.message = "No se encontraron pedidos para este usuario.";
+                        res.data = null;
+                    }
+
+                    return res;
+                }
+                catch (Exception ex)
+                {
+                    res.status = Variables.Response.ERROR;
+                    res.message = "Ocurrió un error al obtener los pedidos: " + ex.Message;
+                    res.data = null;
+                    return res;
+                }
+            }
+        }
+
     }
 }
