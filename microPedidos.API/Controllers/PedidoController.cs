@@ -1,9 +1,11 @@
 ﻿using microPedidos.API.Logic;
 using microPedidos.API.Model;
+using microPedidos.API.Model.Request;
 using microPedidos.API.Utils;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.ComponentModel.DataAnnotations;
+using System.Globalization;
 using System.Security.Claims;
 
 namespace microPedidos.API.Controllers
@@ -41,32 +43,10 @@ namespace microPedidos.API.Controllers
                 return StatusCode(res.status, res);
             }
         }
-
-        [HttpGet]
-        [Route("[action]")]
-        public ActionResult Carrito()
-        {
-            var identity = HttpContext.User.Identity as ClaimsIdentity;
-            if (identity == null) return StatusCode(Variables.Response.Inautorizado, null);
-
-
-            var claims = identity.Claims;
-            var role = claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value;
-
-            if (role != "Cliente")
-            {
-                return StatusCode(Variables.Response.BadRequest, new GeneralResponse { data = null, status = Variables.Response.BadRequest, message = "Solo los Clientes  pueden acceder a su carrito" });
-            }
-
-            var idCliente = int.Parse(claims.FirstOrDefault(c => c.Type == "idUser")?.Value);
-
-            GeneralResponse res = BLPedido.ObtenerCarritoCliente(idCliente);
-            return Ok();
-        }
-
+        
         [HttpPut]
         [Route("[action]/{idPedido}")]
-        public ActionResult EstadoPedido([Required] int idPedido)
+        public ActionResult EstadoPedido([Required] int idPedido, ActualizarEstadoPedidoRequest req)
         {
             var identity = HttpContext.User.Identity as ClaimsIdentity;
             if (identity == null) return StatusCode(Variables.Response.Inautorizado, null);
@@ -82,7 +62,7 @@ namespace microPedidos.API.Controllers
 
             var idEmpledao = int.Parse(claims.FirstOrDefault(c => c.Type == "idUser")?.Value);
 
-            GeneralResponse res = BLPedido.CambiarEstadoPedido(idPedido);
+            GeneralResponse res = BLPedido.CambiarEstadoPedido(idPedido, req);
             if (res.status == Variables.Response.OK)
             {
                 return Ok(res);
@@ -148,5 +128,35 @@ namespace microPedidos.API.Controllers
                 return StatusCode(res.status, res);
             }
         }
+
+        [HttpPost]
+        [Route("")]
+        public ActionResult Pedido(List<AgregarPedidoDetalleRequest> request)
+        {
+            var identity = HttpContext.User.Identity as ClaimsIdentity;
+            if (identity == null) return StatusCode(Variables.Response.Inautorizado, null);
+
+
+            var claims = identity.Claims;
+            var role = claims.FirstOrDefault(c => c.Type == ClaimTypes.Role)?.Value;
+
+            if (role != "Cliente")
+            {
+                return StatusCode(Variables.Response.BadRequest, new GeneralResponse { data = null, status = Variables.Response.BadRequest, message = "Solo los Clientes pueden generar pedidos" });
+            }
+            var idCliente = int.Parse(claims.FirstOrDefault(c => c.Type == "idUser")?.Value);
+
+            GeneralResponse res = BLPedido.CrearPedido(idCliente, request);
+            if (res.status == Variables.Response.OK)
+            {
+                return Ok(res);
+            }
+            else
+            {
+                return StatusCode(res.status, res);
+            }
+
+        }
+        
     }
 }

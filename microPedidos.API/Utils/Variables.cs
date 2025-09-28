@@ -13,6 +13,17 @@
             //Local
             public static string cnx = new ConfigurationBuilder().AddJsonFile(env).Build().GetSection("AppSettings")["conexion"];
         }
+        public static class ENVIO
+        {
+            public static decimal Monto = decimal.Parse(
+                                                    new ConfigurationBuilder()
+                                                        .AddJsonFile(env)
+                                                        .Build()
+                                                        .GetSection("AppSettings")
+                                                        .GetSection("ENVIO")["Monto"],
+                                                    System.Globalization.CultureInfo.InvariantCulture // 👈 evita problemas con coma/punto decimal
+                                                );
+        }
         public static class Token
         {
             public static string PasswordHash = new ConfigurationBuilder().AddJsonFile(env).Build().GetSection("AppSettings").GetSection("Token")["PasswordHash"];

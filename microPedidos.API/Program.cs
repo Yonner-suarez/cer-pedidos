@@ -43,7 +43,7 @@ builder.Services.AddResponseCompression(options =>
 // FluentValidation
 builder.Services.AddFluentValidationAutoValidation();
 builder.Services.AddFluentValidationClientsideAdapters();
-builder.Services.AddValidatorsFromAssembly(typeof(AgregarPedidoValidator).Assembly);
+builder.Services.AddValidatorsFromAssembly(typeof(ActualizarEstadoPedidoValidator).Assembly);
 
 // Controladores + Filtros
 builder.Services.AddControllers(options =>

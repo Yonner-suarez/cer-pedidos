@@ -1,18 +1,15 @@
 ﻿using microPedidos.API.Dao;
 using microPedidos.API.Model;
+using microPedidos.API.Model.Request;
 using microPedidos.API.Model.Response;
 using microPedidos.API.Utils;
+using Org.BouncyCastle.Ocsp;
 using System.Collections.Generic;
 
 namespace microPedidos.API.Logic
 {
     public class BLPedido
-    {
-        public static GeneralResponse ObtenerCarritoCliente(int idCliente)
-        {
-            var res = DAPedidos.ObtenerCarritoCliente(idCliente);
-            return res;
-        }
+    {   
         public static GeneralResponse ObtenerReportePedidos()
         {
             var res = DAPedidos.ReportePedidos();
@@ -34,24 +31,10 @@ namespace microPedidos.API.Logic
                     pedido.productoPedido = productos; 
                 }
             }
-
-
             return res;
         }
 
-        public static GeneralResponse AgregarCarrito(int idCliente)
-        {
-            //Validar siu el cliente ya tiene un carrito activo
-            var idNuevoCarrito = 0;
-            var existe = DAPedidos.ObtenerCarritoActivo(idCliente);
-            if(existe == null)
-            {
-                idNuevoCarrito = DAPedidos.CrearCarrito(idCliente);
-            }
-            return null;
-        }
-
-        public static GeneralResponse CambiarEstadoPedido(int idPedido)
+        public static GeneralResponse CambiarEstadoPedido(int idPedido, ActualizarEstadoPedidoRequest req)
         {
             //Validar si existe el pedido y esta activo
             var existe = DAPedidos.ObtenerPedido(idPedido);
@@ -59,7 +42,7 @@ namespace microPedidos.API.Logic
             {
                 return existe;
             }
-            var res = DAPedidos.ActualizarEstado(idPedido);
+            var res = DAPedidos.ActualizarEstado(idPedido, req);
             return res;
         }
         public static GeneralResponse ObtenerPedidoConProductos(int idPedido)
@@ -105,6 +88,10 @@ namespace microPedidos.API.Logic
                 pedido.productos = new List<ProductoPedido>();
             }
 
+            decimal montoProductos = pedido.productos.Sum(item => item.Cantidad * item.PrecioUnitario);
+            decimal montoTotal = Variables.ENVIO.Monto + montoProductos;
+            pedido.Monto = montoTotal;
+
             // 5. Devolver el pedido completo
             return new GeneralResponse
             {
@@ -125,5 +112,28 @@ namespace microPedidos.API.Logic
             return existe;
         }
 
+        public static GeneralResponse CrearPedido(int idCliente, List<AgregarPedidoDetalleRequest> req)
+        {
+            //Crear Pedido
+            
+            var idPedido = DAPedidos.CrearPedido(idCliente);
+            if (idPedido == 0) return new GeneralResponse {data = null, message = "No se logró crear el pedido", status = Variables.Response.
+                ERROR};
+            
+            var res = DAPedidos.CrearPedidoDetalle(idCliente, idPedido, req);
+
+            decimal montoProductos = req.Sum(item => item.Cantidad * item.Subtotal);
+            decimal montoTotal = Variables.ENVIO.Monto + montoProductos;
+
+            var pedidoResponse = new PedidoResponse
+            {
+                IdPedido = idPedido,
+                Monto = montoTotal
+            };
+            res.data = pedidoResponse;
+
+            return res;
+        }
+       
     }
 }

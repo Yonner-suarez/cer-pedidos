@@ -1,96 +1,14 @@
 ﻿using microPedidos.API.Model;
+using microPedidos.API.Model.Request;
 using microPedidos.API.Model.Response;
 using microPedidos.API.Utils;
 using MySql.Data.MySqlClient;
+using Org.BouncyCastle.Asn1.X509;
 
 namespace microPedidos.API.Dao
 {
     public static class DAPedidos
     {
-        public static GeneralResponse ObtenerCarritoCliente(int idCliente)
-        {
-            var response = new GeneralResponse();
-
-            using (MySqlConnection conn = new MySqlConnection(Variables.Conexion.cnx))
-            {
-                try
-                {
-                    conn.Open();
-
-                    string sql = @"
-                                    SELECT 
-                                        c.cer_int_id_carrito           AS IdCarrito,
-                                        c.cer_int_id_usuario           AS IdUsuario,
-                                        c.cer_tinyint_estado           AS EstadoCarrito,
-                                        c.cer_datetime_created_at      AS FechaCreacionCarrito,
-                                        c.cer_datetime_updated_at      AS FechaActualizacionCarrito,
-
-                                        d.cer_int_id_detalle_carrito   AS IdDetalleCarrito,
-                                        d.cer_int_id_producto          AS IdProducto,
-                                        p.cer_varchar_nombre           AS NombreProducto,
-                                        p.cer_decimal_precio           AS PrecioProducto,
-                                        d.cer_int_cantidad             AS Cantidad,
-                                        d.cer_decimal_subtotal         AS Subtotal,
-
-                                        (d.cer_int_cantidad * p.cer_decimal_precio) AS TotalCalculado
-                                    FROM tbl_cer_carrito c
-                                    INNER JOIN tbl_cer_carrito_detalle d 
-                                        ON c.cer_int_id_carrito = d.cer_int_id_carrito
-                                    INNER JOIN tbl_cer_producto p 
-                                        ON d.cer_int_id_producto = p.cer_int_id_producto
-                                    WHERE c.cer_int_id_usuario = @IdCliente
-                                      AND c.cer_tinyint_estado = 1
-                                      AND d.cer_datetime_deleted_at IS NULL;";
-
-                    var cmd = new MySqlCommand(sql, conn);
-                    cmd.Parameters.AddWithValue("@IdCliente", idCliente);
-
-                    var reader = cmd.ExecuteReader();
-
-                    var carrito = new List<object>();
-
-                    while (reader.Read())
-                    {
-                        carrito.Add(new
-                        {
-                            IdCarrito = reader["IdCarrito"],
-                            IdUsuario = reader["IdUsuario"],
-                            EstadoCarrito = reader["EstadoCarrito"],
-                            FechaCreacionCarrito = reader["FechaCreacionCarrito"],
-                            FechaActualizacionCarrito = reader["FechaActualizacionCarrito"],
-                            IdDetalleCarrito = reader["IdDetalleCarrito"],
-                            IdProducto = reader["IdProducto"],
-                            NombreProducto = reader["NombreProducto"],
-                            PrecioProducto = reader["PrecioProducto"],
-                            Cantidad = reader["Cantidad"],
-                            Subtotal = reader["Subtotal"],
-                            TotalCalculado = reader["TotalCalculado"]
-                        });
-                    }
-
-                    reader.Close();
-
-                    response.status = Variables.Response.OK;
-                    response.message = carrito.Count > 0
-                        ? "Carrito obtenido correctamente."
-                        : "El cliente no tiene carrito.";
-                    response.data = carrito;
-                }
-                catch (Exception ex)
-                {
-                    response.status = Variables.Response.ERROR;
-                    response.message = "Error al obtener el carrito: " + ex.Message;
-                    response.data = null;
-                }
-                finally
-                {
-                    conn.Close();
-                }
-            }
-
-            return response;
-        }
-
         public static GeneralResponse ReportePedidos()
         {
             var response = new GeneralResponse();
@@ -111,16 +29,16 @@ namespace microPedidos.API.Dao
                                         u.cer_varchar_nombre             AS NombreCliente,
                                         u.cer_varchar_correo             AS CorreoCliente,
 
-                                        COUNT(d.cer_int_id_detalle)      AS NroLineas,
-                                        SUM(d.cer_int_cantidad)          AS TotalProductos,
-                                        SUM(d.cer_decimal_subtotal)      AS TotalPedido
+                                        COUNT(d.cer_int_id_detalle)                  AS NroLineas,
+                                        COALESCE(SUM(d.cer_int_cantidad), 0)         AS TotalProductos,
+                                        COALESCE(SUM(d.cer_decimal_subtotal), 0)     AS TotalPedido
                                     FROM tbl_cer_pedido p
                                     INNER JOIN tbl_cer_usuario u 
                                         ON p.cer_int_id_usuario = u.cer_int_id_usuario
-                                    INNER JOIN tbl_cer_pedido_detalle d 
+                                    LEFT JOIN tbl_cer_pedido_detalle d 
                                         ON p.cer_int_id_pedido = d.cer_int_id_pedido
+                                       AND d.cer_datetime_deleted_at IS NULL
                                     WHERE p.cer_datetime_deleted_at IS NULL
-                                      AND d.cer_datetime_deleted_at IS NULL
                                     GROUP BY 
                                         p.cer_int_id_pedido, 
                                         p.cer_datetime_fecha, 
@@ -179,179 +97,6 @@ namespace microPedidos.API.Dao
             return response;
         }
 
-        public static int? ObtenerCarritoActivo(int idCliente)
-        {
-            try
-            {
-                using (var conn = new MySqlConnection(Variables.Conexion.cnx))
-                {
-                    conn.Open();
-                    string sql = @"
-                                    SELECT cer_int_id_carrito
-                                    FROM tbl_cer_carrito
-                                    WHERE cer_int_id_usuario = @IdCliente
-                                      AND cer_tinyint_estado = 1
-                                    LIMIT 1;";
-
-                    using (var cmd = new MySqlCommand(sql, conn))
-                    {
-                        cmd.Parameters.AddWithValue("@IdCliente", idCliente);
-                        var result = cmd.ExecuteScalar();
-                        return result != null ? Convert.ToInt32(result) : (int?)null;
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                throw new Exception("Error al validar carrito: " + ex.Message, ex);
-            }
-        }
-
-        public static int CrearCarrito(int idCliente)
-        {
-            try
-            {
-                using (var conn = new MySqlConnection(Variables.Conexion.cnx))
-                {
-                    conn.Open();
-                    string sql = @"
-                                    INSERT INTO tbl_cer_carrito 
-                                        (cer_int_id_usuario, cer_tinyint_estado, cer_datetime_created_at, cer_datetime_updated_at) 
-                                    VALUES (@IdCliente, 1, NOW(), NOW());
-                                    SELECT LAST_INSERT_ID();";
-
-                    using (var cmd = new MySqlCommand(sql, conn))
-                    {
-                        cmd.Parameters.AddWithValue("@IdCliente", idCliente);
-                        return Convert.ToInt32(cmd.ExecuteScalar());
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                throw new Exception("Error al crear carrito: " + ex.Message, ex);
-            }
-        }
-
-        public static List<CarritoDetalleDto> ObtenerDetallesCarrito(int idCarrito)
-        {
-            try
-            {
-                var detalles = new List<CarritoDetalleDto>();
-
-                using (var conn = new MySqlConnection(Variables.Conexion.cnx))
-                {
-                    conn.Open();
-                    string sql = @"
-                                    SELECT 
-                                        cer_int_id_detalle_carrito, 
-                                        cer_int_id_producto,
-                                        cer_int_cantidad,
-                                        cer_decimal_subtotal
-                                    FROM tbl_cer_carrito_detalle
-                                    WHERE cer_int_id_carrito = @IdCarrito
-                                      AND cer_datetime_deleted_at IS NULL;";
-
-                    using (var cmd = new MySqlCommand(sql, conn))
-                    {
-                        cmd.Parameters.AddWithValue("@IdCarrito", idCarrito);
-
-                        using (var reader = cmd.ExecuteReader())
-                        {
-                            while (reader.Read())
-                            {
-                                detalles.Add(new CarritoDetalleDto
-                                {
-                                    IdDetalleCarrito = Convert.ToInt32(reader["cer_int_id_detalle_carrito"]),
-                                    IdProducto = Convert.ToInt32(reader["cer_int_id_producto"]),
-                                    Cantidad = Convert.ToInt32(reader["cer_int_cantidad"]),
-                                    Subtotal = Convert.ToDecimal(reader["cer_decimal_subtotal"])
-                                });
-                            }
-                        }
-                    }
-                }
-
-                return detalles;
-            }
-            catch (Exception ex)
-            {
-                throw new Exception("Error al obtener detalles del carrito: " + ex.Message, ex);
-            }
-        }
-        // 4️⃣ Actualizar detalle si el producto ya existe
-        public static GeneralResponse ActualizarDetalle(int idDetalle, int idProducto, int nuevaCantidad)
-        {
-            var response = new GeneralResponse();
-            try
-            {
-                using (var conn = new MySqlConnection(Variables.Conexion.cnx))
-                {
-                    conn.Open();
-                    string sql = @"
-                    UPDATE tbl_cer_carrito_detalle
-                    SET cer_int_cantidad = @NuevaCantidad,
-                        cer_decimal_subtotal = (SELECT cer_decimal_precio 
-                                                FROM tbl_cer_producto 
-                                                WHERE cer_int_id_producto = @IdProducto) * @NuevaCantidad,
-                        cer_datetime_updated_at = NOW()
-                    WHERE cer_int_id_detalle_carrito = @IdDetalle;";
-
-                    using (var cmd = new MySqlCommand(sql, conn))
-                    {
-                        cmd.Parameters.AddWithValue("@NuevaCantidad", nuevaCantidad);
-                        cmd.Parameters.AddWithValue("@IdProducto", idProducto);
-                        cmd.Parameters.AddWithValue("@IdDetalle", idDetalle);
-                        cmd.ExecuteNonQuery();
-                    }
-
-                    response.status = Variables.Response.OK;
-                    response.message = "Detalle actualizado correctamente.";
-                }
-            }
-            catch (Exception ex)
-            {
-                response.status = Variables.Response.ERROR;
-                response.message = "Error al actualizar detalle: " + ex.Message;
-            }
-            return response;
-        }
-
-        public static GeneralResponse InsertarDetalle(int idCarrito, int idProducto, int cantidad)
-        {
-            var response = new GeneralResponse();
-            try
-            {
-                using (var conn = new MySqlConnection(Variables.Conexion.cnx))
-                {
-                    conn.Open();
-                    string sql = @"
-                    INSERT INTO tbl_cer_carrito_detalle 
-                        (cer_int_id_carrito, cer_int_id_producto, cer_int_cantidad, cer_decimal_subtotal, cer_datetime_created_at) 
-                    VALUES (@IdCarrito, @IdProducto, @Cantidad,
-                            (SELECT cer_decimal_precio FROM tbl_cer_producto WHERE cer_int_id_producto = @IdProducto) * @Cantidad,
-                            NOW());";
-
-                    using (var cmd = new MySqlCommand(sql, conn))
-                    {
-                        cmd.Parameters.AddWithValue("@IdCarrito", idCarrito);
-                        cmd.Parameters.AddWithValue("@IdProducto", idProducto);
-                        cmd.Parameters.AddWithValue("@Cantidad", cantidad);
-                        cmd.ExecuteNonQuery();
-                    }
-
-                    response.status = Variables.Response.OK;
-                    response.message = "Producto agregado al carrito correctamente.";
-                }
-            }
-            catch (Exception ex)
-            {
-                response.status = Variables.Response.ERROR;
-                response.message = "Error al insertar detalle: " + ex.Message;
-            }
-            return response;
-        }
-
         public static Dictionary<int, List<ProductoPedido>> ObtenerProductosPorPedidos(List<int> idsPedidos)
         {
             var resultado = new Dictionary<int, List<ProductoPedido>>();
@@ -396,7 +141,7 @@ namespace microPedidos.API.Dao
                                 Marca = reader["Marca"].ToString(),
                                 Cateogira = reader["Categoria"].ToString(),
                                 Descripcion = reader["Descripcion"].ToString(),
-                                Cantidad = reader["Cantidad"].ToString(),
+                                Cantidad = Convert.ToInt32(reader["Cantidad"]),
                                 PrecioUnitario = reader["PrecioUnitario"] != DBNull.Value ? Convert.ToInt32(reader["PrecioUnitario"]) : 0
                             };
 
@@ -444,7 +189,14 @@ namespace microPedidos.API.Dao
                                     IdPedido = reader.GetInt32("cer_int_id_pedido"),
                                     Estado = reader.GetString("cer_enum_estado"),
                                     IdCliente = reader.GetInt32("cer_int_id_usuario"),
-                                    FechaPedido = reader.GetDateTime("cer_datetime_fecha")
+                                    FechaPedido = reader.GetDateTime("cer_datetime_fecha"),
+                                    EnlaceTransportadora = reader.IsDBNull(reader.GetOrdinal("cer_varchar_link_transportadora"))
+                                    ? null
+                                    : reader.GetString("cer_varchar_link_transportadora"),
+                                    NroGuia = reader.IsDBNull(reader.GetOrdinal("cer_varchar_nro_guia"))
+                                    ? null
+                                    : reader.GetString("cer_varchar_nro_guia"),
+                                    EstadoPago = reader.GetInt32("cer_tinyint_estado_pago") == 0 ? "Pendiente de pago" : "Pagado",
                                 };
                                 res.status = Variables.Response.OK;
                                 res.message = "Pedido encontrado.";
@@ -468,7 +220,7 @@ namespace microPedidos.API.Dao
                 }
             }
         }
-        public static GeneralResponse ActualizarEstado(int idPedido)
+        public static GeneralResponse ActualizarEstado(int idPedido, ActualizarEstadoPedidoRequest req)
         {
             var res = new GeneralResponse();
             using (var conn = new MySqlConnection(Variables.Conexion.cnx))
@@ -477,24 +229,43 @@ namespace microPedidos.API.Dao
                 {
                     conn.Open();
 
-                    // Cambiar de Pendiente a Enviado
+                    // Base query
                     string query = @"
                                     UPDATE tbl_cer_pedido
-                                    SET cer_enum_estado = 'Enviado',
-                                        cer_datetime_updated_at = NOW()
-                                    WHERE cer_int_id_pedido = @idPedido
-                                      AND cer_datetime_deleted_at IS NULL";
+                                    SET cer_enum_estado = @estado,
+                                        cer_datetime_updated_at = NOW()";
+
+                    // Si estado != 0, también actualizar nro_guia y link_transportadora
+                    if (req.estado != 0)
+                    {
+                        query += @",
+                                    cer_varchar_nro_guia = @nroGuia,
+                                    cer_varchar_link_transportadora = @linkTransportadora";
+                    }
+
+                    query += @"
+                                WHERE cer_int_id_pedido = @idPedido
+                                  AND cer_datetime_deleted_at IS NULL";
 
                     using (var cmd = new MySqlCommand(query, conn))
                     {
                         cmd.Parameters.AddWithValue("@idPedido", idPedido);
+                        cmd.Parameters.AddWithValue("@estado", req.estado == 0 ? "Pendiente" : "Enviado");
+
+                        if (req.estado != 0)
+                        {
+                            cmd.Parameters.AddWithValue("@nroGuia", req.NroGuia ?? "");
+                            cmd.Parameters.AddWithValue("@linkTransportadora", req.EnlaceTransportadora ?? "");
+                        }
+
                         int filas = cmd.ExecuteNonQuery();
 
                         if (filas > 0)
                         {
                             res.status = Variables.Response.OK;
-                            res.message = "Estado del pedido actualizado a Enviado.";
-                            res.data = null;
+                            res.message = req.estado == 0
+                                ? "Estado del pedido actualizado a Pendiente."
+                                : "Estado del pedido actualizado a Enviado con guía y transportadora.";
                         }
                         else
                         {
@@ -507,6 +278,7 @@ namespace microPedidos.API.Dao
                 {
                     res.status = Variables.Response.ERROR;
                     res.message = "Ocurrió un error al actualizar el estado del pedido";
+                    res.data = ex.Message; // opcional: guardar detalle
                 }
 
                 return res;
@@ -541,6 +313,13 @@ namespace microPedidos.API.Dao
                                     Estado = reader.GetString("cer_enum_estado"),
                                     IdCliente = reader.GetInt32("cer_int_id_usuario"),
                                     FechaPedido = reader.GetDateTime("cer_datetime_fecha"),
+                                    EnlaceTransportadora = reader.IsDBNull(reader.GetOrdinal("cer_varchar_link_transportadora"))
+                                    ? null
+                                    : reader.GetString("cer_varchar_link_transportadora"),
+                                    NroGuia = reader.IsDBNull(reader.GetOrdinal("cer_varchar_nro_guia"))
+                                    ? null
+                                    : reader.GetString("cer_varchar_nro_guia"),
+                                    EstadoPago = reader.GetInt32("cer_tinyint_estado_pago") == 0 ? "Pendiente de pago" : "Pagado",
                                     productos = new List<ProductoPedido>() // Inicializamos vacía
                                 };
 
@@ -573,6 +352,129 @@ namespace microPedidos.API.Dao
                 }
             }
         }
+        public static int CrearPedido(int idCliente)
+        {
+            int idPedido = 0;
+
+            using (var conn = new MySqlConnection(Variables.Conexion.cnx))
+            {
+                try
+                {
+                    conn.Open();
+
+                    string query = @"
+                                    INSERT INTO tbl_cer_pedido 
+                                    (
+                                        cer_enum_estado,
+                                        cer_int_id_usuario,
+                                        cer_int_created_by
+                                    )
+                                    VALUES
+                                    (
+                                        'Pendiente',
+                                        @idCliente,
+                                        @idUsuarioCreador
+                                    );
+                                    SELECT LAST_INSERT_ID();";
+
+                    using (var cmd = new MySqlCommand(query, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@idCliente", idCliente);
+                        cmd.Parameters.AddWithValue("@idUsuarioCreador", idCliente);
+
+                        idPedido = Convert.ToInt32(cmd.ExecuteScalar());
+                    }
+                }
+                catch
+                {
+                    idPedido = 0; 
+                }
+                finally
+                {
+                    conn.Close();
+                }
+            }
+
+            return idPedido;
+        }
+        public static GeneralResponse CrearPedidoDetalle(int idCliente, int idPedido, List<AgregarPedidoDetalleRequest> request)
+        {
+            using (var conn = new MySqlConnection(Variables.Conexion.cnx))
+            {
+                try
+                {
+                    conn.Open();
+
+                    using (var transaction = conn.BeginTransaction())
+                    {
+                        string query = @"
+                                        INSERT INTO tbl_cer_pedido_detalle
+                                        (
+                                            cer_int_id_pedido,
+                                            cer_int_id_producto,
+                                            cer_int_cantidad,
+                                            cer_decimal_subtotal,
+                                            cer_int_created_by,
+                                            cer_datetime_created_at
+                                        )
+                                        VALUES
+                                        (
+                                            @IdPedido,
+                                            @IdProducto,
+                                            @Cantidad,
+                                            @Subtotal,
+                                            @IdCliente,
+                                            NOW()
+                                        );";
+
+                        using (var cmd = new MySqlCommand(query, conn, transaction))
+                        {
+                            // Reutilizamos el mismo command para todos los items
+                            cmd.Parameters.Add("@IdPedido", MySqlDbType.Int32);
+                            cmd.Parameters.Add("@IdProducto", MySqlDbType.Int32);
+                            cmd.Parameters.Add("@Cantidad", MySqlDbType.Int32);
+                            cmd.Parameters.Add("@Subtotal", MySqlDbType.Decimal);
+                            cmd.Parameters.Add("@IdCliente", MySqlDbType.Int32);
+
+                            foreach (var item in request)
+                            {
+                                cmd.Parameters["@IdPedido"].Value = idPedido;
+                                cmd.Parameters["@IdProducto"].Value = item.IdProducto;
+                                cmd.Parameters["@Cantidad"].Value = item.Cantidad;
+                                cmd.Parameters["@Subtotal"].Value = item.Subtotal;
+                                cmd.Parameters["@IdCliente"].Value = idCliente;
+
+                                cmd.ExecuteNonQuery();
+                            }
+                        }
+
+                        transaction.Commit();
+                    }
+
+                    return new GeneralResponse
+                    {
+                        status = Variables.Response.OK,
+                        message = "Detalles del pedido creados con éxito",
+                        data = true
+                    };
+                }
+                catch (Exception ex)
+                {
+                    return new GeneralResponse
+                    {
+                        status = Variables.Response.ERROR,
+                        message = $"Error al crear los detalles del pedido",
+                        data = false
+                    };
+                }
+                finally
+                {
+                    conn.Close();
+                }
+            }
+        }
+
+       
 
     }
 }

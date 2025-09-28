@@ -23,7 +23,7 @@
         public string Cateogira { get; set; }
 
         public string Descripcion { get; set; }
-        public string Cantidad { get; set; }
+        public int Cantidad { get; set; }
 
         public int PrecioUnitario { get; set; }
         public byte[] Image { get; set; }
