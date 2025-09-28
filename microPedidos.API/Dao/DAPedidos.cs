@@ -28,7 +28,9 @@ namespace microPedidos.API.Dao
                                         u.cer_int_id_usuario             AS IdCliente,
                                         u.cer_varchar_nombre             AS NombreCliente,
                                         u.cer_varchar_correo             AS CorreoCliente,
-
+                                        p.cer_varchar_nro_guia           AS NroGuia,
+                                        p.cer_varchar_link_transportadora            AS EnlaceTransportadora,
+                                        p.cer_tinyint_estado_pago                    AS EstadoPago,
                                         COUNT(d.cer_int_id_detalle)                  AS NroLineas,
                                         COALESCE(SUM(d.cer_int_cantidad), 0)         AS TotalProductos,
                                         COALESCE(SUM(d.cer_decimal_subtotal), 0)     AS TotalPedido
@@ -68,7 +70,14 @@ namespace microPedidos.API.Dao
 
                             NroLineas = Convert.ToInt32(reader["NroLineas"]),
                             TotalProductos = Convert.ToInt32(reader["TotalProductos"]),
-                            TotalPedido = Convert.ToDecimal(reader["TotalPedido"])
+                            TotalPedido = Convert.ToDecimal(reader["TotalPedido"]),
+                            EnlaceTransportadora = reader.IsDBNull(reader.GetOrdinal("EnlaceTransportadora"))
+                                    ? null
+                                    : reader.GetString("EnlaceTransportadora"),
+                            NroGuia = reader.IsDBNull(reader.GetOrdinal("NroGuia"))
+                                    ? null
+                                    : reader.GetString("NroGuia"),
+                            EstadoPago = reader.GetInt32("EstadoPago") == 0 ? "Pendiente de pago" : "Pagado",
                         };
 
                         pedidos.Add(pedido);
