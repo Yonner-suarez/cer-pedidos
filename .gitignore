@@ -341,3 +341,6 @@ ASALocalRun/
 healthchecksdb
 /microLeasing/appsettings.Development.json
 .vscode/launch.json
+
+#appsettings 
+/microPedidos.API/appsettings.Development.json
