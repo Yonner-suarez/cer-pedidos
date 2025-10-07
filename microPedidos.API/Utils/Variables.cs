@@ -6,12 +6,33 @@
         /// Se asigna en el startup
         /// </summary>
         public static string env = "appsettings.json";
-        public static int ambiente = int.Parse(new ConfigurationBuilder().AddJsonFile(env).Build().GetSection("AppSettings")["ambiente"]);
-
         public static class Conexion
         {
-            //Local
-            public static string cnx = new ConfigurationBuilder().AddJsonFile(env).Build().GetSection("AppSettings")["conexion"];
+            public static string cnx;
+
+            static Conexion()
+            {
+                // Intentamos primero obtener variables del entorno (Render las pone ahí)
+                var host = Environment.GetEnvironmentVariable("DB_HOST");
+                var port = Environment.GetEnvironmentVariable("DB_PORT");
+                var name = Environment.GetEnvironmentVariable("DB_NAME");
+                var user = Environment.GetEnvironmentVariable("DB_USER");
+                var pass = Environment.GetEnvironmentVariable("DB_PASSWORD");
+
+                // Si existen (Render), las usamos
+                if (!string.IsNullOrEmpty(host))
+                {
+                    cnx = $"Server={host};Port={port};Database={name};User ID={user};Password={pass};";
+                }
+                else
+                {
+                    // Si estamos en local, leemos del appsettings.json
+                    cnx = new ConfigurationBuilder()
+                        .AddJsonFile(env)
+                        .Build()
+                        .GetSection("AppSettings")["conexion"];
+                }
+            }
         }
         public static class ENVIO
         {
@@ -26,7 +47,12 @@
         }
         public static class Token
         {
-            public static string Llave = new ConfigurationBuilder().AddJsonFile(env).Build().GetSection("AppSettings").GetSection("Token")["Llave"];
+            private static IConfiguration config = new ConfigurationBuilder()
+                .AddJsonFile(env)
+                .Build();
+
+            public static string Llave = Environment.GetEnvironmentVariable("TOKEN_KEY")
+                ?? config.GetSection("AppSettings").GetSection("Token")["Llave"];
         }
         public static class TipoPersona
         {
