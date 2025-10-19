@@ -18,6 +18,8 @@ namespace microPedidos.API.Logic
 
             var pedidos = res.data as List<ReportePedidosResponse>;
 
+            if(pedidos.Count == 0) return new GeneralResponse { status = Variables.Response.BadRequest, data=null, message="No hay pedidos" };
+
             var idsPedidos = pedidos.Select(p => p.IdPedido).ToList();
             var productosPorpedido = DAPedidos.ObtenerProductosPorPedidos(idsPedidos);
 
