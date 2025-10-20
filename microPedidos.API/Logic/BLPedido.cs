@@ -3,6 +3,7 @@ using microPedidos.API.Model;
 using microPedidos.API.Model.Request;
 using microPedidos.API.Model.Response;
 using microPedidos.API.Utils;
+using microPedidos.API.Utils.ExternalAPI;
 using Org.BouncyCastle.Ocsp;
 using System.Collections.Generic;
 
@@ -136,6 +137,85 @@ namespace microPedidos.API.Logic
 
             return res;
         }
-       
+
+        public static GeneralResponse CambiarEstadoPago(int idPedido, int estado)
+        {
+            //Validar si existe el pedido y esta activo
+            var existe = DAPedidos.ObtenerPedido(idPedido);
+            if (existe.status != Variables.Response.OK)
+            {
+                return existe;
+            }
+            var res = DAPedidos.ActualizarEstadoPago(idPedido, estado);
+            return res;
+        }
+        public static async Task<GeneralResponse> ValidarPago(int idPedido)
+        {
+            try
+            {
+                // Validar si existe el pedido y está activo
+                var existe = DAPedidos.ObtenerPedido(idPedido);
+                if (existe.status != Variables.Response.OK)
+                {
+                    return existe;
+                }
+
+                bool estaPago = DAPedidos.ValidarPago(idPedido);
+                if (!estaPago)
+                {
+                    return new GeneralResponse
+                    {
+                        status = Variables.Response.BadRequest,
+                        data = 0,
+                        message = "El pedido aún no está pagado"
+                    };
+                }
+
+                var data = ObtenerPedidoConProductos(idPedido).data;
+                var pedidosConProductos = data as Pedido;
+
+                // Actualizar existencias del producto cuando el pago se haya hecho
+                string endpoint = "api/v1/Inventario/ActualizarStock";
+                var req = new List<ActualizarStockProducto>();
+
+                foreach (var producto in pedidosConProductos.productos)
+                {
+                    var item = new ActualizarStockProducto
+                    {
+                        Cantidad = producto.Cantidad,
+                        IdProducto = producto.IdProducto
+                    };
+                    req.Add(item);
+                }
+
+                var res = await InventarioClient.PutAsync(endpoint, req);
+                if (!res.IsSuccessStatusCode)
+                {
+                    return new GeneralResponse
+                    {
+                        data = 0,
+                        status = Variables.Response.BadRequest,
+                        message = "Ocurrió un error al actualizar el stock"
+                    };
+                }
+
+                return new GeneralResponse
+                {
+                    message = "Tu pago fue verificado",
+                    data = 1,
+                    status = Variables.Response.OK
+                };
+            }
+            catch (Exception ex)
+            {
+                return new GeneralResponse
+                {
+                    status = Variables.Response.ERROR,
+                    data = 0,
+                    message = $"Ocurrió un error inesperado: {ex.Message}"
+                };
+            }
+        }
+
     }
 }

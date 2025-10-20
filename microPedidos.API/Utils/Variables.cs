@@ -34,6 +34,18 @@
                 }
             }
         }
+        public static class INVENTARIOAPI
+        {
+            private static readonly IConfiguration config = new ConfigurationBuilder()
+                .AddJsonFile(env, optional: true)
+                .Build()
+                .GetSection("AppSettings").GetSection("INVENTARIOAPI");
+
+            // Variable de entorno INVENTARIO_API_URL
+            public static readonly string Url =
+                Environment.GetEnvironmentVariable("INVENTARIO_API_URL") ??
+                config["url"];
+        }
         public static class ENVIO
         {
             public static decimal Monto = decimal.Parse(

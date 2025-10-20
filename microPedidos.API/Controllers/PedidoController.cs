@@ -157,6 +157,36 @@ namespace microPedidos.API.Controllers
             }
 
         }
-        
+
+        [AllowAnonymous]
+        [HttpPut]
+        [Route("[action]/{idPedido}/{estado}")]
+        public ActionResult EstadoPago([Required] int idPedido, [Required] int estado)
+        {     
+            GeneralResponse res = BLPedido.CambiarEstadoPago(idPedido, estado);
+            if (res.status == Variables.Response.OK)
+            {
+                return Ok(res);
+            }
+            else
+            {
+                return StatusCode(res.status, res);
+            }
+        }
+        [AllowAnonymous]
+        [HttpGet]
+        [Route("[action]/{idPedido}")]
+        public async Task<IActionResult> ValidarPago(int idPedido)
+        {
+           
+            GeneralResponse res = await BLPedido.ValidarPago(idPedido);
+
+            if (res.status != Variables.Response.OK)
+            {
+                return StatusCode(res.status, res);
+            }
+
+            return Ok(res);
+        }
     }
 }

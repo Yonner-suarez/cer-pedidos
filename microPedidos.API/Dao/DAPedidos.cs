@@ -129,7 +129,8 @@ namespace microPedidos.API.Dao
                             c.cer_enum_nombre AS Categoria,
                             p.cer_text_descripcion AS Descripcion,
                             d.cer_int_cantidad AS Cantidad,
-                            p.cer_decimal_precio AS PrecioUnitario
+                            p.cer_decimal_precio AS PrecioUnitario,
+                            p.cer_int_id_producto AS IdProducto
                         FROM tbl_cer_pedido_detalle d
                         INNER JOIN tbl_cer_producto p ON d.cer_int_id_producto = p.cer_int_id_producto
                         INNER JOIN tbl_cer_marca m ON p.cer_int_id_marca = m.cer_int_id_marca
@@ -147,6 +148,7 @@ namespace microPedidos.API.Dao
 
                             var producto = new ProductoPedido
                             {
+                                IdProducto = reader.GetInt32("IdProducto"),
                                 Marca = reader["Marca"].ToString(),
                                 Cateogira = reader["Categoria"].ToString(),
                                 Descripcion = reader["Descripcion"].ToString(),
@@ -483,7 +485,88 @@ namespace microPedidos.API.Dao
             }
         }
 
-       
+        public static GeneralResponse ActualizarEstadoPago(int idPedido, int estado)
+        {
+            var res = new GeneralResponse();
+            using (var conn = new MySqlConnection(Variables.Conexion.cnx))
+            {
+                try
+                {
+                    conn.Open();
+
+                    // Base query
+                    string query = @"
+                                    UPDATE tbl_cer_pedido
+                                    SET cer_tinyint_estado_pago = @estado,
+                                        cer_datetime_updated_at = NOW(),
+                                        cer_int_updated_by = -1"; //pasarela
+
+                    
+                    using (var cmd = new MySqlCommand(query, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@idPedido", idPedido);
+                        cmd.Parameters.AddWithValue("@estado", estado); // 0 sin pago // 1 pago
+
+                       int filas = cmd.ExecuteNonQuery();
+
+                        if (filas > 0)
+                        {
+                            res.status = Variables.Response.OK;
+                            res.message = "";
+                            res.data = true;
+                        }
+                        else
+                        {
+                            res.status = Variables.Response.BadRequest;
+                            res.message = "Ocurrio un erro al actualizar el estado del pedido";
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    res.status = Variables.Response.ERROR;
+                    res.message = "Ocurrió un error al actualizar el estado del pedido";
+                    res.data = ex.Message; // opcional: guardar detalle
+                }
+
+                return res;
+            }
+        }
+        public static bool ValidarPago(int idPedido)
+        {
+            bool estaPagado = false;
+
+            using (var conn = new MySqlConnection(Variables.Conexion.cnx))
+            {
+                try
+                {
+                    conn.Open();
+
+                    string query = @"
+                                    SELECT cer_tinyint_estado_pago
+                                    FROM tbl_cer_pedido
+                                    WHERE cer_int_id = @idPedido
+                                    LIMIT 1";
+
+                    using (var cmd = new MySqlCommand(query, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@idPedido", idPedido);
+
+                        var result = cmd.ExecuteScalar();
+                        if (result != null && Convert.ToInt32(result) == 1)
+                        {
+                            estaPagado = true; // ya está pagado
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    estaPagado = false;
+                }
+            }
+
+            return estaPagado;
+        }
 
     }
 }

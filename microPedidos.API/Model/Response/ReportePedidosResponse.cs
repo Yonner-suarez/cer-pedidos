@@ -22,6 +22,7 @@
 
     public class ProductoPedido
     {
+        public int IdProducto { get; set; }
         public string Marca { get; set; }
         public string Cateogira { get; set; }
 
