@@ -498,8 +498,7 @@ namespace microPedidos.API.Dao
                     string query = @"
                                     UPDATE tbl_cer_pedido
                                     SET cer_tinyint_estado_pago = @estado,
-                                        cer_datetime_updated_at = NOW(),
-                                        cer_int_updated_by = -1"; //pasarela
+                                        cer_datetime_updated_at = NOW()"; //pasarela
 
                     
                     using (var cmd = new MySqlCommand(query, conn))
