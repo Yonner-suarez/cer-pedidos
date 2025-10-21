@@ -1,4 +1,5 @@
-﻿using microPedidos.API.Model;
+﻿using microPedidos.API.Logic;
+using microPedidos.API.Model;
 using microPedidos.API.Model.Request;
 using microPedidos.API.Model.Response;
 using microPedidos.API.Utils;
@@ -498,7 +499,8 @@ namespace microPedidos.API.Dao
                     string query = @"
                                     UPDATE tbl_cer_pedido
                                     SET cer_tinyint_estado_pago = @estado,
-                                        cer_datetime_updated_at = NOW()"; //pasarela
+                                        cer_datetime_updated_at = NOW()
+                                     WHERE  cer_int_id_pedido = @idPedido"; //pasarela
 
                     
                     using (var cmd = new MySqlCommand(query, conn))
