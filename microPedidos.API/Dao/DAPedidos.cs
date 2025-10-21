@@ -546,7 +546,7 @@ namespace microPedidos.API.Dao
                     string query = @"
                                     SELECT cer_tinyint_estado_pago
                                     FROM tbl_cer_pedido
-                                    WHERE cer_int_id = @idPedido
+                                    WHERE cer_int_id_pedido = @idPedido
                                     LIMIT 1";
 
                     using (var cmd = new MySqlCommand(query, conn))
