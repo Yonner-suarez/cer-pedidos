@@ -46,20 +46,7 @@
                 Environment.GetEnvironmentVariable("INVENTARIO_API_URL") ??
                 config["url"];
         }
-        public static class ENVIO
-        {
-            private static readonly IConfiguration config = new ConfigurationBuilder()
-                .AddJsonFile(env, optional: true)
-                .Build()
-                .GetSection("AppSettings")
-                .GetSection("ENVIO");
-
-            // Lee primero la variable de entorno ENVIO_MONTO; si no existe, toma el valor del archivo JSON
-            public static readonly decimal Monto = decimal.Parse(
-                Environment.GetEnvironmentVariable("ENVIO_MONTO") ?? config["Monto"],
-                System.Globalization.CultureInfo.InvariantCulture
-            );
-        }
+       
         public static class Token
         {
             private static IConfiguration config = new ConfigurationBuilder()

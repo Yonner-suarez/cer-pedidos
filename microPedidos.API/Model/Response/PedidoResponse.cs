@@ -7,5 +7,6 @@ namespace microPedidos.API.Model.Response
         public int IdPedido { get; set; }
         
         public decimal Monto { get; set; } 
+        public decimal TarifaEnvio { get; set; }
     }
 }

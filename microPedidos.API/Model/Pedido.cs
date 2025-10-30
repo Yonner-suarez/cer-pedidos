@@ -12,6 +12,7 @@ namespace microPedidos.API.Model
         public string EnlaceTransportadora { get; set; }
         public string EstadoPago { get; set; }
         public decimal Monto { get; set; }
+        public decimal TarifaEnvio { get; set; }
         public List<ProductoPedido> productos { get; set; }
 
 

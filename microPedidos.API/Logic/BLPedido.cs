@@ -118,20 +118,21 @@ namespace microPedidos.API.Logic
         public static GeneralResponse CrearPedido(int idCliente, List<AgregarPedidoDetalleRequest> req)
         {
             //Crear Pedido
-            
-            var idPedido = DAPedidos.CrearPedido(idCliente);
+            decimal envio = req.Select(x => x.TarifaEnvio).FirstOrDefault();
+            var idPedido = DAPedidos.CrearPedido(idCliente, envio);
             if (idPedido == 0) return new GeneralResponse {data = null, message = "No se logró crear el pedido", status = Variables.Response.
                 ERROR};
             
             var res = DAPedidos.CrearPedidoDetalle(idCliente, idPedido, req);
 
             decimal montoProductos = req.Sum(item => item.Cantidad * item.Subtotal);
-            decimal montoTotal = Variables.ENVIO.Monto + montoProductos;
+            decimal montoTotal = envio + montoProductos;
 
             var pedidoResponse = new PedidoResponse
             {
                 IdPedido = idPedido,
-                Monto = montoTotal
+                Monto = montoTotal,
+                TarifaEnvio = envio,
             };
             res.data = pedidoResponse;
 

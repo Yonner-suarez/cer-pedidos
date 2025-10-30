@@ -209,6 +209,7 @@ namespace microPedidos.API.Dao
                                     ? null
                                     : reader.GetString("cer_varchar_nro_guia"),
                                     EstadoPago = reader.GetInt32("cer_tinyint_estado_pago") == 0 ? "Pendiente de pago" : "Pagado",
+                                    TarifaEnvio = reader.GetDecimal("cer_dec_tarifa_envio")
                                 };
                                 res.status = Variables.Response.OK;
                                 res.message = "Pedido encontrado.";
@@ -364,7 +365,7 @@ namespace microPedidos.API.Dao
                 }
             }
         }
-        public static int CrearPedido(int idCliente)
+        public static int CrearPedido(int idCliente, decimal tarifaEnvio)
         {
             int idPedido = 0;
 
@@ -379,13 +380,15 @@ namespace microPedidos.API.Dao
                                     (
                                         cer_enum_estado,
                                         cer_int_id_usuario,
-                                        cer_int_created_by
+                                        cer_int_created_by,
+                                        cer_dec_tarifa_envio
                                     )
                                     VALUES
                                     (
                                         'Pendiente',
                                         @idCliente,
-                                        @idUsuarioCreador
+                                        @idUsuarioCreador,
+                                        @tarifaEnvio
                                     );
                                     SELECT LAST_INSERT_ID();";
 
@@ -393,6 +396,7 @@ namespace microPedidos.API.Dao
                     {
                         cmd.Parameters.AddWithValue("@idCliente", idCliente);
                         cmd.Parameters.AddWithValue("@idUsuarioCreador", idCliente);
+                        cmd.Parameters.AddWithValue("@tarifaEnvio", tarifaEnvio);
 
                         idPedido = Convert.ToInt32(cmd.ExecuteScalar());
                     }
